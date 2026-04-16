@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>AutoGPT Debug UI</title>
+</head>
+
+<body style="background:#111;color:#0f0;font-family:monospace;">
+
+<h2>AutoGPT Debug UI</h2>
+
+<div id="status">Status: nicht verbunden</div>
+<div id="chat"></div>
+
+<input id="msg" placeholder="Nachricht eingeben">
+<button onclick="send()">Send</button>
+
+<script>
+let ws;
+
+function log(msg) {
+    let div = document.createElement("div");
+    div.textContent = msg;
+    document.getElementById("chat").appendChild(div);
+}
+
+function connect() {
+    log("🔌 Verbinde WebSocket...");
+
+    ws = new WebSocket(`ws://${location.host}/ws`);
+
+    ws.onopen = () => {
+        document.getElementById("status").textContent = "Status: verbunden";
+        log("✅ WebSocket verbunden");
+    };
+
+    ws.onmessage = (e) => {
+        log("🤖 AI: " + e.data);
+    };
+
+    ws.onclose = () => {
+        document.getElementById("status").textContent = "Status: getrennt";
+        log("❌ WebSocket geschlossen");
+    };
+
+    ws.onerror = (e) => {
+        log("⚠️ WebSocket Fehler");
+        console.error(e);
+    };
+}
+
+function send() {
+    let input = document.getElementById("msg");
+    let text = input.value;
+
+    if (!text) return;
+
+    log("👤 DU: " + text);
+
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        log("🔄 Reconnect...");
+        connect();
+
+        setTimeout(() => {
+            ws.send(text);
+        }, 500);
+    } else {
+        ws.send(text);
+    }
+
+    input.value = "";
+}
+
+connect();
+</script>
+
+</body>
+</html>
