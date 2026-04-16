@@ -6,6 +6,14 @@ Eine vollständige Docker-basierte Anwendung mit autonomem AI-Agent für Netzwer
 
 Dieses Repository enthält folgende Komponenten:
 
+### AI & Inference Model
+
+* **Ollama** - Lokales LLM-Runtime-System
+* **Llama3 8B** - Open-Source Sprachmodell lokal gehostet
+* Keine Cloud-Abhängigkeiten - vollständig auf lokaler Hardware
+* Inference läuft containerisiert in Docker
+* CPU-optimiert für schnelle Inferenz
+
 ### Backend
 
 * Python-Backend auf Basis von FastAPI
@@ -78,6 +86,39 @@ docker-compose down
 
 ---
 
+## Inference Model Details
+
+### Ollama - Lokales LLM Runtime
+
+**Ollama** ist ein leichtgewichtiges, lokales LLM-Runtime-System das folgende Vorteile bietet:
+
+* **Vollständig lokal** - Keine Daten an Cloud-Provider
+* **Open Source** - Transparent und erweiterbar
+* **Datenschutz** - Alle Inferenzen laufen auf deinem System
+* **Kostenlos** - Keine API-Gebühren
+* **Schnell** - CPU-optimierte Inferenz
+
+### Llama3 8B Modell
+
+* **Parameter:** 8 Milliarden
+* **Trainiert von:** Meta
+* **Lizenz:** Open Source (Llama 2 Community License)
+* **Speicher:** ~16GB RAM/VRAM empfohlen
+* **Inferenz-Latenz:** 2-5 Sekunden pro Anfrage (CPU)
+
+### Integration im Agent
+
+Der autonome Agent nutzt Llama3 für:
+
+1. **Prompt-Parsing** - Versteht Benutzeranfragen
+2. **Tool-Selection** - Wählt passendes Netzwerk-Tool
+3. **Response-Generation** - Generiert Antworten basierend auf Tool-Ergebnissen
+4. **JSON-Output** - Strukturierte Kommunikation mit Backend
+
+Alle Verarbeitung erfolgt lokal ohne externe API-Calls.
+
+---
+
 ## Architektur
 
 ```
@@ -97,6 +138,7 @@ docker-compose down
                             │     Ollama      │
                             │  (Port 11434)   │
                             │  Llama3 Model   │
+                            │  (Lokal gehostet)
                             └─────────────────┘
 ```
 
@@ -147,14 +189,27 @@ docker-compose up -d --build backend
 
 | Service | Port | Image | Zweck |
 |---------|------|-------|-------|
-| ollama | 11434 | ollama/ollama | LLM Runtime |
+| ollama | 11434 | ollama/ollama | LLM Runtime (lokal gehostet) |
 | backend | 8000 | python:3.11-slim | FastAPI Agent |
 | frontend | 3000 | node:22 | UI Server |
 | nginx | 80 | nginx:alpine | Reverse Proxy |
 
 ### Volumes
 
-* `ai-autonomus_ollama` - Persistente Speicherung des Llama3 Modells
+* `ai-autonomus_ollama` - Persistente Speicherung des Llama3 Modells (lokal)
+
+---
+
+## Datenschutz & Sicherheit
+
+### Lokale Ausführung
+
+Diese Anwendung läuft vollständig lokal:
+
+* **Keine Cloud-Abhängigkeiten** - Ollama und Llama3 laufen in deinem Docker Container
+* **Datenschutz** - Keine Benutzeranfragen oder Daten werden an externe Server gesendet
+* **Offline-fähig** - Funktioniert auch ohne Internetverbindung (nach initialem Download)
+* **Volle Kontrolle** - Du hast vollständige Kontrolle über deine Daten
 
 ---
 
