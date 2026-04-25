@@ -8,8 +8,33 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const wsRef = useRef(null);
   const chatEndRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
+  const messageIdRef = useRef(0);
 
-  // WebSocket Connection
+  const formatMessageText = (value) => {
+    if (typeof value !== "string") {
+      try {
+        return JSON.stringify(value, null, 2);
+      } catch {
+        return String(value);
+      }
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (typeof parsed === "string") {
+        return parsed;
+      }
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return value;
+    }
+  };
+
+  // WebSocket Connection mit Keep-Alive
   useEffect(() => {
     const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
@@ -19,6 +44,7 @@ export default function App() {
         console.log("Connecting to WebSocket:", wsUrl);
         wsRef.current = new WebSocket(wsUrl);
 
+        // 🔥 NO TIMEOUT - Browser kümmert sich selbst darum
         wsRef.current.onopen = () => {
           console.log("✓ WebSocket verbunden");
           setIsConnected(true);
@@ -28,7 +54,7 @@ export default function App() {
         wsRef.current.onmessage = (event) => {
           console.log("Message received:", event.data);
           addMessage("ai", event.data);
-          setIsLoading(false);
+          setIsLoading(false);  // Stop loading spinner
         };
 
         wsRef.current.onerror = (error) => {
@@ -40,12 +66,13 @@ export default function App() {
         wsRef.current.onclose = () => {
           console.log("WebSocket geschlossen");
           setIsConnected(false);
-          // Versuche zu reconnecten
-          setTimeout(connect, 3000);
+          setIsLoading(false);
+          // Reconnect nach 3s
+          reconnectTimeoutRef.current = setTimeout(connect, 3000);
         };
       } catch (error) {
         console.error("WebSocket Connection Error:", error);
-        setTimeout(connect, 3000);
+        reconnectTimeoutRef.current = setTimeout(connect, 3000);
       }
     };
 
@@ -54,6 +81,9 @@ export default function App() {
     return () => {
       if (wsRef.current) {
         wsRef.current.close();
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
       }
     };
   }, []);
@@ -64,7 +94,15 @@ export default function App() {
   }, [messages]);
 
   const addMessage = (type, text) => {
-    setMessages((prev) => [...prev, { type, text, id: Date.now() }]);
+    messageIdRef.current += 1;
+    setMessages((prev) => [
+      ...prev,
+      {
+        type,
+        text: formatMessageText(text),
+        id: `msg-${Date.now()}-${messageIdRef.current}`,
+      },
+    ]);
   };
 
   const handleSend = () => {
@@ -77,10 +115,20 @@ export default function App() {
       return;
     }
 
+    // Send user message
     addMessage("user", trimmedInput);
     setIsLoading(true);
-    wsRef.current.send(trimmedInput);
-    setInput("");
+    
+    // Send to backend - NO TIMEOUT HERE
+    try {
+      wsRef.current.send(trimmedInput);
+      setInput("");
+      console.log("Message sent to backend");
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      setIsLoading(false);
+      addMessage("error", "⚠️ Nachricht konnte nicht gesendet werden");
+    }
   };
 
   const handleKeyPress = (e) => {
@@ -123,7 +171,7 @@ export default function App() {
             <div className="message message-loading">
               <div className="message-content">
                 <div className="loading-spinner"></div>
-                <span>Agent arbeitet...</span>
+                <span>Agent arbeitet... (kann 10-30 Sekunden dauern)</span>
               </div>
             </div>
           )}

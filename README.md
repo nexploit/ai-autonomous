@@ -58,6 +58,11 @@ Der Agent hat Zugriff auf folgende spezialisierte Tools:
   * IDE-Dateien (`.vscode/`, `.idea/`)
   * Umgebungsdateien (`.env`)
 
+### Dokumentation
+
+Weitere Projekt-Dokumentation liegt unter `docs/`.
+Dort befinden sich unter anderem Setup-, RAG- und Security-Dokumente.
+
 ---
 
 ## Installation & Verwendung
@@ -231,6 +236,11 @@ docker logs ai-autonomus-ollama-1 --tail 50
 ```bash
 docker ps -a | grep ai-autonomus
 ```
+
+### Technischer Hinweis
+
+Die aktive Backend-Anwendung startet über `backend/main.py`.
+Früherer Altbestand wurde nach `backend/legacy/` verschoben und ist derzeit nicht Teil des produktiven Startpfads.
 
 ### Modell lädt zu lange
 

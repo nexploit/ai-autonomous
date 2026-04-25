@@ -1,7 +1,5 @@
 import subprocess
 import socket
-import json
-import re
 
 def get_network_info() -> dict:
     """Get local network configuration (IP, hostname, interfaces)"""

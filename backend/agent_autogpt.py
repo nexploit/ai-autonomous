@@ -1,49 +1,60 @@
 import requests
 import json
 import re
-import asyncio
 import sys
+import os
 from tools.registry import execute_tool
+from rag_engine import RAGEngine
 
 OLLAMA_URL = "http://ollama:11434/api/chat"
-REQUEST_TIMEOUT = 45  # 45 second timeout for individual Ollama requests
+REQUEST_TIMEOUT = 180
+DEFAULT_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
 
 SYSTEM_PROMPT = """Du bist ein hilfsbereiter AI-Agent mit Zugriff auf Netzwerk-Tools.
 
-Verfügbare Tools:
-- ping: Ping einen Host (z.B. {"tool": "ping", "args": {"host": "localhost", "count": 4}})
-- dns_lookup: DNS-Auflösung (z.B. {"tool": "dns_lookup", "args": {"domain": "google.com"}})
-- network_info: Lokale Netzwerk-Infos abrufen (z.B. {"tool": "network_info", "args": {}})
-- check_port: Port auf Host prüfen (z.B. {"tool": "check_port", "args": {"host": "localhost", "port": 8000}})
-- traceroute: Route zu Host tracen (z.B. {"tool": "traceroute", "args": {"host": "google.com"}})
-- active_connections: Aktive Verbindungen auflisten (z.B. {"tool": "active_connections", "args": {}})
-- scan_host: Host auf offene Ports scannen (z.B. {"tool": "scan_host", "args": {"host": "localhost"}})
-- shell: Shell-Befehle ausführen (z.B. {"tool": "shell", "args": {"cmd": "whoami"}})
+ANTWORTE IMMER IN JSON FORMAT. Beispiele:
 
-Du MUSST IMMER in REINEM JSON antworten. Keine anderen Worte!
+Wenn du ein Tool nutzen willst:
+{"tool": "ping", "args": {"host": "localhost"}}
 
-Wenn du ein Tool brauchst, nutze genau die Struktur oben.
-Wenn du eine finale Antwort hast:
-{"final": "DEINE ANTWORT HIER"}
+Wenn du die finale Antwort hast:
+{"final": "Deine Antwort hier"}
 
-NIE Text außerhalb von JSON! Immer valides JSON!"""
+NUR JSON. KEINE ANDEREN WORTE!"""
 
 def extract_json(text):
-    # Versuche valides JSON zu finden
+    """Extract JSON from text - sehr tolerant"""
+    # Versuche verschiedene Methoden
+    
+    # 1. Suche nach {"..."}
     try:
-        # Erste: Suche nach ganzen JSON-Objekten
         match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', text, re.DOTALL)
         if match:
             candidate = match.group(0)
-            json.loads(candidate)  # Validiere
+            parsed = json.loads(candidate)
             return candidate
     except:
         pass
     
-    # Fallback: Probiere einfach den ganzen Text
+    # 2. Versuche ganzen Text
     try:
-        json.loads(text)
-        return text
+        parsed = json.loads(text.strip())
+        return text.strip()
+    except:
+        pass
+    
+    # 3. Suche nach JSON-ähnlichem Pattern
+    try:
+        # Entferne Markdown-Code-Blöcke
+        clean = re.sub(r'```json\n?', '', text)
+        clean = re.sub(r'```\n?', '', clean)
+        clean = clean.strip()
+        
+        match = re.search(r'\{.*\}', clean, re.DOTALL)
+        if match:
+            candidate = match.group(0)
+            parsed = json.loads(candidate)
+            return candidate
     except:
         pass
     
@@ -51,82 +62,118 @@ def extract_json(text):
 
 
 class AutoGPT:
+    def __init__(self):
+        sys.stdout.write(f"[AUTOGPT] Initializing with model: {DEFAULT_MODEL}\n")
+        sys.stdout.flush()
+        
+        try:
+            self.rag = RAGEngine(persist_dir="./knowledge_base")
+            stats = self.rag.get_stats()
+            sys.stdout.write(f"[AUTOGPT] RAG ready: {len(stats.get('documents_list', []))} docs\n")
+            sys.stdout.flush()
+        except Exception as e:
+            sys.stdout.write(f"[AUTOGPT] RAG error: {e}\n")
+            sys.stdout.flush()
+            self.rag = None
 
     def call_llm(self, prompt):
         try:
             r = requests.post(
                 OLLAMA_URL,
                 json={
-                    "model": "llama3",
+                    "model": DEFAULT_MODEL,
                     "messages": [
                         {"role": "system", "content": SYSTEM_PROMPT},
                         {"role": "user", "content": prompt}
                     ],
-                    "stream": False
+                    "stream": False,
+                    "keep_alive": "5m"
                 },
                 timeout=REQUEST_TIMEOUT
             )
             data = r.json()
-            return data.get("message", {}).get("content", str(data))
+            response = data.get("message", {}).get("content", str(data))
+            return response
         except requests.exceptions.Timeout:
-            return "REQUEST ERROR: Ollama timeout (>30s). Servidor puede estar sobrecargado."
+            return '{"error": "Ollama timeout"}'
         except requests.exceptions.ConnectionError:
-            return "REQUEST ERROR: No se pudo conectar a Ollama. Verifica que el servicio esté corriendo."
+            return '{"error": "Cannot connect to Ollama"}'
         except Exception as e:
-            return f"REQUEST ERROR: {e}"
+            return f'{{"error": "{str(e)}"}}'
 
     def run(self, goal, max_steps=3):
-        history = f"ZIEL: {goal}\n"
-        sys.stdout.write(f"[AGENT] Starting with goal: {goal}\n")
+        sys.stdout.write(f"[AGENT] Goal: {goal}\n")
         sys.stdout.flush()
-        last_tool_result = None
-
+        
+        # RAG Context
+        rag_context = ""
+        if self.rag:
+            try:
+                retrieved = self.rag.retrieve_context(goal, top_k=2)
+                if retrieved:
+                    rag_context = "\n📚 KNOWLEDGE:\n" + "\n".join(retrieved)
+            except Exception as e:
+                sys.stdout.write(f"[AGENT] RAG error: {e}\n")
+                sys.stdout.flush()
+        
+        history = f"ZIEL: {goal}\n{rag_context}\n"
+        
         for step in range(max_steps):
             sys.stdout.write(f"[AGENT] Step {step+1}/{max_steps}\n")
             sys.stdout.flush()
+            
             output = self.call_llm(history)
-            msg = f"[AGENT] LLM output: {output[:300]}..." if len(output) > 300 else f"[AGENT] LLM output: {output}"
-            sys.stdout.write(msg + "\n")
+            sys.stdout.write(f"[AGENT] LLM: {output[:200]}\n")
             sys.stdout.flush()
 
-            json_part = extract_json(output)
-            sys.stdout.write(f"[AGENT] Extracted JSON: {json_part}\n")
-            sys.stdout.flush()
+            json_str = extract_json(output)
+            
+            if not json_str:
+                # Kein JSON erkannt - einfach als Antwort nehmen
+                sys.stdout.write(f"[AGENT] No JSON - using as answer\n")
+                sys.stdout.flush()
+                return output[:500]
+            
+            try:
+                parsed = json.loads(json_str)
+                sys.stdout.write(f"[AGENT] Parsed: {str(parsed)[:100]}\n")
+                sys.stdout.flush()
 
-            if json_part:
-                try:
-                    parsed = json.loads(json_part)
-                    sys.stdout.write(f"[AGENT] Parsed: {parsed}\n")
+                # Check for final answer
+                if "final" in parsed:
+                    result = parsed["final"]
+                    sys.stdout.write(f"[AGENT] Final: {result[:100]}\n")
                     sys.stdout.flush()
+                    return result
 
-                    if "final" in parsed:
-                        result = parsed["final"]
-                        sys.stdout.write(f"[AGENT] Final answer: {result}\n")
-                        sys.stdout.flush()
-                        return result
-
-                    if "tool" in parsed:
-                        tool_name = parsed["tool"]
-                        tool_args = parsed.get("args", {})
-                        sys.stdout.write(f"[AGENT] Executing tool: {tool_name} with args: {tool_args}\n")
-                        sys.stdout.flush()
+                # Check for tool
+                if "tool" in parsed:
+                    tool_name = parsed["tool"]
+                    tool_args = parsed.get("args", {})
+                    sys.stdout.write(f"[AGENT] Tool: {tool_name}\n")
+                    sys.stdout.flush()
+                    
+                    try:
                         result = execute_tool(tool_name, tool_args)
-                        sys.stdout.write(f"[AGENT] Tool result: {result}\n")
+                        sys.stdout.write(f"[AGENT] Tool result: {str(result)[:100]}\n")
                         sys.stdout.flush()
-                        last_tool_result = result
-                        history += f"\nTool '{tool_name}' Result:\n{result}\n"
+                        history += f"\nTool '{tool_name}' returned:\n{result}\n"
+                        continue
+                    except Exception as e:
+                        sys.stdout.write(f"[AGENT] Tool error: {e}\n")
+                        sys.stdout.flush()
+                        history += f"\nTool error: {e}\n"
                         continue
 
-                except Exception as e:
-                    sys.stdout.write(f"[AGENT] JSON parsing error: {e}\n")
-                    sys.stdout.flush()
-                    history += f"\nJSON ERROR: {e}\n"
-
-            history += f"\n{output}\n"
-            
-        # Fallback: Wenn nach max_steps kein valides JSON kam, gib das letzte Tool-Ergebnis zurück
+                # Unbekanntes JSON - weiter zur nächsten Iteration
+                history += f"\n{output}\n"
+                
+            except json.JSONDecodeError as e:
+                sys.stdout.write(f"[AGENT] JSON parse error: {e}\n")
+                sys.stdout.flush()
+                history += f"\n{output}\n"
+        
+        # Fallback nach max_steps
         sys.stdout.write(f"[AGENT] Max steps reached\n")
         sys.stdout.flush()
-        if last_tool_result:
-            return f"Tool-Ergebnis: {last_tool_result}"
-        return "Keine finale Antwort nach " + str(max_steps) + " Schritten"
+        return f"Agent hat nach {max_steps} Schritten keine finale Antwort gefunden. Letzter Output: {output[:200]}"

@@ -7,15 +7,10 @@ from tools.network import (
     check_port,
     get_active_connections
 )
-import subprocess
-
-def run_shell(cmd):
-    return subprocess.getoutput(cmd)
 
 TOOLS = {
     "scan_host": scan_host,
     "list_ports": list_ports,
-    "shell": run_shell,
     "ping": ping_host,
     "network_info": get_network_info,
     "dns_lookup": dns_lookup,
@@ -27,4 +22,8 @@ TOOLS = {
 def execute_tool(name, args):
     if name in TOOLS:
         return TOOLS[name](**args) if isinstance(args, dict) else TOOLS[name](args)
-    return "Unknown tool"
+    return {
+        "status": "error",
+        "error": f"Unknown tool: {name}",
+        "available_tools": sorted(TOOLS.keys())
+    }

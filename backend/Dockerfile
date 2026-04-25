@@ -5,6 +5,10 @@ WORKDIR /app
 # Update system packages and install dependencies
 RUN apt-get update && apt-get install -y \
     iputils-ping \
+    traceroute \
+    net-tools \
+    nmap \
+    iproute2 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
