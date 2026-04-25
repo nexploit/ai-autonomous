@@ -5,8 +5,8 @@ services:
       - "80:80"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./backend/frontend:/usr/share/nginx/html:ro
     depends_on:
-      - frontend
       - backend
     networks:
       - default

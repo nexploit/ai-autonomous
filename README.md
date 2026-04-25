@@ -1,62 +1,53 @@
 # ai-autonomous
 
-Eine vollständige Docker-basierte Anwendung mit autonomem AI-Agent für Netzwerk-Operationen.
+Eine Docker-basierte Anwendung mit autonomem AI-Agent fuer Netzwerk-Operationen.
 
-## Projektübersicht
+## Projektuebersicht
 
-Dieses Repository enthält folgende Komponenten:
+Dieses Repository enthaelt folgende Komponenten:
 
-### AI & Inference Model
+### AI und Inference Model
 
 * **Ollama** - Lokales LLM-Runtime-System
 * **Llama3 8B** - Open-Source Sprachmodell lokal gehostet
-* Keine Cloud-Abhängigkeiten - vollständig auf lokaler Hardware
-* Inference läuft containerisiert in Docker
-* CPU-optimiert für schnelle Inferenz
+* Keine Cloud-Abhaengigkeiten - vollstaendig auf lokaler Hardware
+* Inference laeuft containerisiert in Docker
+* CPU-optimiert fuer lokale Ausfuehrung
 
 ### Backend
 
 * Python-Backend auf Basis von FastAPI
-* Integrierter autonomer Agent (Ollama / Llama3)
+* Integrierter autonomer Agent mit Ollama / Llama3
 * WebSocket-basierte Kommunikation
-* Tool-Registry für spezialisierte Funktionen
+* Tool-Registry fuer spezialisierte Netzwerkfunktionen
 
 ### Frontend
 
-* Node.js-Server
-* Benutzeroberfläche für WebSocket-basierten Chat
+* Node.js-Server fuer die React-Oberflaeche
+* WebSocket-basierte Benutzeroberflaeche
 * Vite-basierte Build-Pipeline
+* Neues Frontend-Design im Stil von `MU/TH/UR` / `Nostromo Industrial`
+* `http://localhost` wird ueber Nginx mit der statischen Konsole aus `backend/frontend/index.html` ausgeliefert
 
 ### Infrastruktur
 
 * Docker-Compose-Setup mit folgenden Diensten:
-
-  * **Ollama** - LLM-Runtime mit Llama3 Modell
-  * **Backend** - FastAPI mit autonomem Agent
-  * **Frontend** - Node.js UI Server
-  * **Nginx** - Reverse Proxy
+* **Ollama** - LLM-Runtime mit Llama3 Modell
+* **Backend** - FastAPI mit autonomem Agent
+* **Frontend** - Node.js UI Server
+* **Nginx** - Reverse Proxy und Auslieferung der Hauptoberflaeche
 
 ### Netzwerk-Tools
 
 Der Agent hat Zugriff auf folgende spezialisierte Tools:
 
-* **Ping** - Erreichbarkeit von Hosts prüfen
-* **DNS-Lookup** - Domain zu IP auflösen
+* **Ping** - Erreichbarkeit von Hosts pruefen
+* **DNS-Lookup** - Domain zu IP aufloesen
 * **Traceroute** - Route zu Host tracen
-* **Port-Check** - Ports auf Hosts prüfen
+* **Port-Check** - Ports auf Hosts pruefen
 * **Aktive Verbindungen** - Netzwerk-Verbindungen auflisten
 * **Network Info** - Lokale Netzwerk-Konfiguration
 * **Scan Host** - Ports scannen
-
-### Sonstiges
-
-* `.gitignore` enthält Ausschlüsse für:
-
-  * Python (`__pycache__`, `*.pyc`, `venv/`)
-  * Node.js (`node_modules/`)
-  * Docker (`.docker/`)
-  * IDE-Dateien (`.vscode/`, `.idea/`)
-  * Umgebungsdateien (`.env`)
 
 ### Dokumentation
 
@@ -65,12 +56,12 @@ Dort befinden sich unter anderem Setup-, RAG- und Security-Dokumente.
 
 ---
 
-## Installation & Verwendung
+## Installation und Verwendung
 
 ### Voraussetzungen
 
-* Docker & Docker Compose installiert
-* Mindestens 8GB RAM (für Llama3 Modell)
+* Docker und Docker Compose installiert
+* Mindestens 8 GB RAM fuer das Llama3 Modell
 
 ### Starten der Anwendung
 
@@ -78,10 +69,20 @@ Dort befinden sich unter anderem Setup-, RAG- und Security-Dokumente.
 docker-compose up -d
 ```
 
-Die Anwendung ist dann verfügbar unter:
-- **Frontend**: http://localhost
-- **Backend API**: http://localhost:8000
-- **Ollama API**: http://localhost:11435
+Die Anwendung ist dann verfuegbar unter:
+
+* **Frontend**: http://localhost
+* **Backend API**: http://localhost:8000
+* **Ollama API**: http://localhost:11435
+
+### UI-Design
+
+Das Frontend wurde visuell auf einen industriellen `Alien`-inspirierten Bordcomputer-Look umgestellt:
+
+* Bernsteinfarbene `MU/TH/UR`-Konsole mit technischem Panel-Layout
+* Statusanzeigen, Command-Feed und Terminal-Optik im `Nostromo`-Stil
+* Neue statische Hauptoberflaeche unter `backend/frontend/index.html`
+* Zusaetzlich modernisierte React-Oberflaeche unter `frontend/src/`
 
 ### Stoppen
 
@@ -93,32 +94,32 @@ docker-compose down
 
 ## Inference Model Details
 
-### Ollama - Lokales LLM Runtime
+### Ollama
 
-**Ollama** ist ein leichtgewichtiges, lokales LLM-Runtime-System das folgende Vorteile bietet:
+**Ollama** ist ein leichtgewichtiges lokales LLM-Runtime-System mit folgenden Vorteilen:
 
-* **Vollständig lokal** - Keine Daten an Cloud-Provider
-* **Open Source** - Transparent und erweiterbar
-* **Datenschutz** - Alle Inferenzen laufen auf deinem System
-* **Kostenlos** - Keine API-Gebühren
-* **Schnell** - CPU-optimierte Inferenz
+* Vollstaendig lokal
+* Open Source
+* Datenschutzfreundlich
+* Keine API-Gebuehren
+* Gute lokale Performance
 
 ### Llama3 8B Modell
 
 * **Parameter:** 8 Milliarden
 * **Trainiert von:** Meta
-* **Lizenz:** Open Source (Llama 2 Community License)
-* **Speicher:** ~16GB RAM/VRAM empfohlen
-* **Inferenz-Latenz:** 2-5 Sekunden pro Anfrage (CPU)
+* **Lizenz:** Open Source
+* **Speicher:** ca. 16 GB RAM/VRAM empfohlen
+* **Inferenz-Latenz:** ca. 2 bis 5 Sekunden pro Anfrage auf CPU
 
 ### Integration im Agent
 
-Der autonome Agent nutzt Llama3 für:
+Der autonome Agent nutzt Llama3 fuer:
 
-1. **Prompt-Parsing** - Versteht Benutzeranfragen
-2. **Tool-Selection** - Wählt passendes Netzwerk-Tool
-3. **Response-Generation** - Generiert Antworten basierend auf Tool-Ergebnissen
-4. **JSON-Output** - Strukturierte Kommunikation mit Backend
+1. Prompt-Parsing
+2. Tool-Selection
+3. Response-Generation
+4. JSON-Output
 
 Alle Verarbeitung erfolgt lokal ohne externe API-Calls.
 
@@ -126,61 +127,31 @@ Alle Verarbeitung erfolgt lokal ohne externe API-Calls.
 
 ## Architektur
 
+```text
+                Nginx (Port 80)
+                      |
+          +-----------+-----------+
+          |                       |
+   Nostromo UI              Backend (8000)
+ backend/frontend           FastAPI + WS
+      index.html                  |
+                                  |
+                            Ollama (11434)
+                              Llama3 lokal
 ```
-┌─────────────────────────────────────────────────────────┐
-│                      Nginx (Port 80)                    │
-└──────────────────────┬──────────────────────────────────┘
-                       │
-        ┌──────────────┴──────────────┐
-        │                             │
-┌───────▼────────┐          ┌────────▼────────┐
-│   Frontend     │          │    Backend      │
-│  (Port 3000)   │          │  (Port 8000)    │
-│   Node.js UI   │          │  FastAPI        │
-└────────────────┘          └────────┬────────┘
-                                     │
-                            ┌────────▼────────┐
-                            │     Ollama      │
-                            │  (Port 11434)   │
-                            │  Llama3 Model   │
-                            │  (Lokal gehostet)
-                            └─────────────────┘
-```
+
+Die React-Oberflaeche im Ordner `frontend/` bleibt weiterhin Teil des Projekts, waehrend Nginx fuer `http://localhost` aktuell die neue statische Nostromo-Konsole ausliefert.
 
 ---
 
 ## Backend-Tools erweitern
 
-Um neue Tools hinzuzufügen:
+Um neue Tools hinzuzufuegen:
 
-1. **Tool-Datei erstellen** (z.B. `backend/tools/my_tool.py`):
-
-```python
-def my_tool(param: str) -> dict:
-    """Beschreibung des Tools"""
-    try:
-        result = do_something(param)
-        return {"status": "success", "data": result}
-    except Exception as e:
-        return {"status": "error", "error": str(e)}
-```
-
-2. **In Registry registrieren** (`backend/tools/registry.py`):
-
-```python
-from tools.my_tool import my_tool
-
-TOOLS = {
-    ...
-    "my_tool": my_tool,
-}
-```
-
-3. **Agent-Prompt updaten** (`backend/agent_autogpt.py`):
-
-Zeile im `SYSTEM_PROMPT` hinzufügen mit Tool-Beschreibung.
-
-4. **Backend neu bauen**:
+1. Tool-Datei erstellen, zum Beispiel `backend/tools/my_tool.py`
+2. Tool in `backend/tools/registry.py` registrieren
+3. Agent-Prompt in `backend/agent_autogpt.py` erweitern
+4. Backend neu bauen:
 
 ```bash
 docker-compose up -d --build backend
@@ -188,33 +159,31 @@ docker-compose up -d --build backend
 
 ---
 
-## Environment & Konfiguration
+## Environment und Konfiguration
 
 ### Docker Compose Services
 
 | Service | Port | Image | Zweck |
 |---------|------|-------|-------|
-| ollama | 11434 | ollama/ollama | LLM Runtime (lokal gehostet) |
+| ollama | 11434 | ollama/ollama | LLM Runtime lokal |
 | backend | 8000 | python:3.11-slim | FastAPI Agent |
-| frontend | 3000 | node:22 | UI Server |
-| nginx | 80 | nginx:alpine | Reverse Proxy |
+| frontend | 3000 | node:22 | React UI Server |
+| nginx | 80 | nginx:alpine | Reverse Proxy und Nostromo-UI |
 
 ### Volumes
 
-* `ai-autonomus_ollama` - Persistente Speicherung des Llama3 Modells (lokal)
+* `ai-autonomus_ollama` - Persistente Speicherung des Llama3 Modells
 
 ---
 
-## Datenschutz & Sicherheit
+## Datenschutz und Sicherheit
 
-### Lokale Ausführung
+Diese Anwendung laeuft vollstaendig lokal:
 
-Diese Anwendung läuft vollständig lokal:
-
-* **Keine Cloud-Abhängigkeiten** - Ollama und Llama3 laufen in deinem Docker Container
-* **Datenschutz** - Keine Benutzeranfragen oder Daten werden an externe Server gesendet
-* **Offline-fähig** - Funktioniert auch ohne Internetverbindung (nach initialem Download)
-* **Volle Kontrolle** - Du hast vollständige Kontrolle über deine Daten
+* Keine Cloud-Abhaengigkeiten fuer Inference
+* Keine Weitergabe von Benutzeranfragen an externe APIs
+* Offline-faehig nach initialem Model-Download
+* Volle Kontrolle ueber Daten und Infrastruktur
 
 ---
 
@@ -222,29 +191,32 @@ Diese Anwendung läuft vollständig lokal:
 
 ### Agent antwortet nicht
 
-1. Logs prüfen:
+1. Backend-Logs pruefen:
+
 ```bash
 docker logs ai-autonomus-backend-1 --tail 100
 ```
 
-2. Ollama-Status:
+2. Ollama-Status pruefen:
+
 ```bash
 docker logs ai-autonomus-ollama-1 --tail 50
 ```
 
-3. WebSocket-Verbindung überprüfen:
+3. Container-Status pruefen:
+
 ```bash
-docker ps -a | grep ai-autonomus
+docker ps -a
 ```
 
 ### Technischer Hinweis
 
-Die aktive Backend-Anwendung startet über `backend/main.py`.
-Früherer Altbestand wurde nach `backend/legacy/` verschoben und ist derzeit nicht Teil des produktiven Startpfads.
+Die aktive Backend-Anwendung startet ueber `backend/main.py`.
+Frueherer Altbestand wurde nach `backend/legacy/` verschoben und ist derzeit nicht Teil des produktiven Startpfads.
 
-### Modell lädt zu lange
+### Modell laedt zu lange
 
-Das Llama3 8B Modell benötigt beim ersten Start 10-15 Sekunden zum Laden. Dies ist normal.
+Das Llama3-8B-Modell benoetigt beim ersten Start einige Sekunden zum Laden. Das ist normal.
 
 ### Port-Konflikte
 
@@ -253,7 +225,7 @@ Falls Ports bereits belegt sind, in `docker-compose.yaml` anpassen:
 ```yaml
 nginx:
   ports:
-    - "8080:80"  # Statt 80:80
+    - "8080:80"
 ```
 
 ---
@@ -264,8 +236,6 @@ Dieses Projekt steht unter der MIT Lizenz.
 
 ---
 
-## Autor & Erstellung
+## Autor und Erstellung
 
-Die Docker-Anwendung wurde von **Peter Niemietz** ([peter.niemietz@nexploit.de](mailto:peter.niemietz@nexploit.de)) in Zusammenarbeit mit **Docker AI Gordon** erstellt.
-
-**Datum:** 16.04.2026
+Die Docker-Anwendung wurde von **Peter Niemietz** in Zusammenarbeit mit **Docker AI Gordon** erstellt.
