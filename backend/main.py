@@ -19,6 +19,13 @@ app.add_middleware(
 agent = AutoGPT()
 
 
+async def send_keepalive(ws: WebSocket, interval: int = 10):
+    """Prevent idle websocket connections from being dropped during long LLM runs."""
+    while True:
+        await asyncio.sleep(interval)
+        await ws.send_text("[system] processing")
+
+
 @app.get("/")
 def root():
     return {"status": "ok", "msg": "AutoGPT mit RAG läuft"}
@@ -91,18 +98,38 @@ async def websocket_endpoint(ws: WebSocket):
                         sys.stdout.flush()
                         return f"AGENT ERROR: {e}"
 
+                keepalive_task = None
                 try:
+                    keepalive_task = asyncio.create_task(send_keepalive(ws))
                     result = await asyncio.wait_for(
                         loop.run_in_executor(None, run_agent),
                         timeout=300
                     )
+                    if keepalive_task:
+                        keepalive_task.cancel()
+                        try:
+                            await keepalive_task
+                        except asyncio.CancelledError:
+                            pass
                     sys.stdout.write(f"[WS] Got result, sending...\n")
                     sys.stdout.flush()
                 except asyncio.TimeoutError:
+                    if keepalive_task:
+                        keepalive_task.cancel()
+                        try:
+                            await keepalive_task
+                        except asyncio.CancelledError:
+                            pass
                     result = "TIMEOUT: Agent took too long"
                     sys.stdout.write(f"[WS] Timeout\n")
                     sys.stdout.flush()
                 except Exception as e:
+                    if keepalive_task:
+                        keepalive_task.cancel()
+                        try:
+                            await keepalive_task
+                        except asyncio.CancelledError:
+                            pass
                     result = f"ERROR: {str(e)}"
                     sys.stdout.write(f"[WS] Executor error: {e}\n")
                     sys.stdout.flush()

@@ -9,6 +9,15 @@ from rag_engine import RAGEngine
 OLLAMA_URL = "http://ollama:11434/api/chat"
 REQUEST_TIMEOUT = 180
 DEFAULT_MODEL = os.getenv("OLLAMA_MODEL", "llama3")
+MEDICAL_MODEL = os.getenv("OLLAMA_MEDICAL_MODEL", "medgemma:4b")
+
+MEDICAL_KEYWORDS = {
+    "arzt", "atemnot", "behandlung", "blutdruck", "cholesterin", "diagnose",
+    "durchfall", "erbrechen", "fieber", "gesundheit", "hdl", "herz", "husten",
+    "infekt", "insulin", "krank", "krankheit", "medizin", "medikament",
+    "medizinisch", "medikamente", "notaufnahme", "patient", "praxis",
+    "schmerzen", "symptom", "symptome", "therapie", "vorsorge", "wunde"
+}
 
 SYSTEM_PROMPT = """Du bist ein hilfsbereiter AI-Agent mit Zugriff auf Netzwerk-Tools.
 
@@ -20,6 +29,16 @@ Wenn du ein Tool nutzen willst:
 Wenn du die finale Antwort hast:
 {"final": "Deine Antwort hier"}
 
+NUR JSON. KEINE ANDEREN WORTE!"""
+
+MEDICAL_SYSTEM_PROMPT = """Du bist ein medizinischer Berater fuer allgemeine Gesundheitsfragen.
+
+ANTWORTE IMMER IN JSON FORMAT.
+
+Nutze ausschliesslich dieses Format:
+{"final": "Deine Antwort hier"}
+
+Gib keine Tools aus. Formuliere klar, vorsichtig und mit Hinweis auf aerztliche Hilfe bei akuten Warnzeichen.
 NUR JSON. KEINE ANDEREN WORTE!"""
 
 def extract_json(text):
@@ -63,7 +82,9 @@ def extract_json(text):
 
 class AutoGPT:
     def __init__(self):
-        sys.stdout.write(f"[AUTOGPT] Initializing with model: {DEFAULT_MODEL}\n")
+        sys.stdout.write(
+            f"[AUTOGPT] Initializing with default model: {DEFAULT_MODEL} and medical model: {MEDICAL_MODEL}\n"
+        )
         sys.stdout.flush()
         
         try:
@@ -76,14 +97,18 @@ class AutoGPT:
             sys.stdout.flush()
             self.rag = None
 
-    def call_llm(self, prompt):
+    def is_medical_query(self, text):
+        lowered = text.lower()
+        return any(keyword in lowered for keyword in MEDICAL_KEYWORDS)
+
+    def call_llm(self, prompt, model_name, system_prompt):
         try:
             r = requests.post(
                 OLLAMA_URL,
                 json={
-                    "model": DEFAULT_MODEL,
+                    "model": model_name,
                     "messages": [
-                        {"role": "system", "content": SYSTEM_PROMPT},
+                        {"role": "system", "content": system_prompt},
                         {"role": "user", "content": prompt}
                     ],
                     "stream": False,
@@ -104,10 +129,16 @@ class AutoGPT:
     def run(self, goal, max_steps=3):
         sys.stdout.write(f"[AGENT] Goal: {goal}\n")
         sys.stdout.flush()
+
+        is_medical = self.is_medical_query(goal)
+        selected_model = MEDICAL_MODEL if is_medical else DEFAULT_MODEL
+        selected_prompt = MEDICAL_SYSTEM_PROMPT if is_medical else SYSTEM_PROMPT
+        sys.stdout.write(f"[AGENT] Using model: {selected_model}\n")
+        sys.stdout.flush()
         
         # RAG Context
         rag_context = ""
-        if self.rag:
+        if self.rag and not is_medical:
             try:
                 retrieved = self.rag.retrieve_context(goal, top_k=2)
                 if retrieved:
@@ -122,7 +153,7 @@ class AutoGPT:
             sys.stdout.write(f"[AGENT] Step {step+1}/{max_steps}\n")
             sys.stdout.flush()
             
-            output = self.call_llm(history)
+            output = self.call_llm(history, selected_model, selected_prompt)
             sys.stdout.write(f"[AGENT] LLM: {output[:200]}\n")
             sys.stdout.flush()
 

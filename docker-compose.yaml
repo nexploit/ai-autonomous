@@ -36,6 +36,7 @@ services:
       - BACKEND_HOST=0.0.0.0
       - BACKEND_PORT=8000
       - OLLAMA_MODEL=llama3
+      - OLLAMA_MEDICAL_MODEL=medgemma:4b
     volumes:
       - ./knowledge_base:/app/knowledge_base:ro
     networks:
@@ -61,7 +62,7 @@ services:
       ollama:
         condition: service_healthy
     entrypoint: ["/bin/sh", "-c"]
-    command: "ollama pull llama3"
+    command: "ollama pull llama3 && ollama pull medgemma:4b"
     volumes:
       - ollama:/root/.ollama
     networks:

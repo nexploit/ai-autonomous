@@ -38,7 +38,7 @@
       linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 40%, var(--bg-0) 100%);
     color: var(--text);
     font-family: "IBM Plex Mono", "Space Mono", "Courier New", monospace;
-    overflow: hidden;
+    overflow: auto;
   }
 
   body::before {
@@ -63,11 +63,12 @@
     z-index: 1;
     display: grid;
     grid-template-rows: auto 1fr auto;
-    min-height: 100vh;
+    height: 100vh;
     width: min(1380px, calc(100vw - 24px));
     margin: 0 auto;
     padding: 18px 0 20px;
     gap: 18px;
+    overflow: hidden;
   }
 
   .panel,
@@ -160,9 +161,12 @@
   }
 
   .sidebar {
+    min-height: 0;
+    overflow-y: auto;
     display: grid;
     gap: 18px;
     align-content: start;
+    padding-right: 6px;
   }
 
   .panel {
@@ -196,6 +200,19 @@
     content: ">";
     margin-right: 10px;
     color: var(--accent-strong);
+  }
+
+  .debug-list {
+    margin-top: 16px;
+    display: grid;
+    gap: 10px;
+    color: rgba(255, 227, 183, 0.85);
+    line-height: 1.45;
+    word-break: break-word;
+  }
+
+  .debug-list strong {
+    color: var(--accent);
   }
 
   .feed {
@@ -258,12 +275,17 @@
   }
 
   .footer {
+    position: relative;
+    z-index: 2;
+    flex-shrink: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr) 210px;
     gap: 14px;
+    align-items: stretch;
   }
 
   .command-box {
+    min-height: 0;
     padding: 14px 16px 16px;
   }
 
@@ -275,6 +297,7 @@
   #msg {
     width: 100%;
     min-height: 96px;
+    max-height: 24vh;
     background: transparent;
     border: none;
     color: var(--text);
@@ -330,16 +353,20 @@
   }
 
   @media (max-width: 980px) {
-    body {
-      overflow: auto;
-    }
-
     .frame {
       width: min(100vw - 20px, 1380px);
+      height: auto;
+      min-height: 100vh;
+      overflow: visible;
     }
 
     .main-grid {
       grid-template-columns: 1fr;
+    }
+
+    .sidebar {
+      overflow: visible;
+      padding-right: 0;
     }
 
     .footer,
@@ -406,6 +433,15 @@
             <li>Reconnect is attempted automatically if the channel drops.</li>
           </ul>
         </section>
+
+        <section class="panel">
+          <div class="label">Socket Debug</div>
+          <div class="debug-list">
+            <div><strong>State:</strong> <span id="debugState">booting</span></div>
+            <div><strong>Last event:</strong> <span id="debugEvent">none</span></div>
+            <div><strong>Last payload:</strong> <span id="debugPayload">none</span></div>
+          </div>
+        </section>
       </aside>
 
       <section class="panel feed">
@@ -429,23 +465,35 @@
 <script>
 let ws;
 let entryCount = 0;
+let reconnectTimer = null;
+
+function setDebug(eventName, payload = "") {
+    document.getElementById("debugEvent").textContent = eventName;
+    document.getElementById("debugPayload").textContent =
+        payload ? String(payload).slice(0, 180) : "none";
+
+    if (!ws) {
+        document.getElementById("debugState").textContent = "no socket";
+        return;
+    }
+
+    const states = ["CONNECTING", "OPEN", "CLOSING", "CLOSED"];
+    document.getElementById("debugState").textContent = states[ws.readyState] || "unknown";
+}
 
 function updateStatus(connected) {
     const status = document.getElementById("status");
     const dot = document.getElementById("statusDot");
     const queue = document.getElementById("queueState");
-    const button = document.getElementById("sendButton");
 
     if (connected) {
         status.textContent = "LINK STABLE";
         dot.classList.remove("offline");
         queue.textContent = "READY";
-        button.disabled = false;
     } else {
         status.textContent = "DISCONNECTED";
         dot.classList.add("offline");
         queue.textContent = "STANDBY";
-        button.disabled = true;
     }
 }
 
@@ -476,20 +524,33 @@ function log(type, msg) {
 }
 
 function connect() {
+    if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+    }
+
     log("system", "Attempting websocket uplink...");
     updateStatus(false);
 
     const protocol = location.protocol === "https:" ? "wss" : "ws";
     ws = new WebSocket(`${protocol}://${location.host}/ws`);
+    setDebug("connect_called", `${protocol}://${location.host}/ws`);
 
     ws.onopen = () => {
         updateStatus(true);
+        setDebug("socket_open");
         log("system", "Backend link established.");
     };
 
     ws.onmessage = (event) => {
+        setDebug("message", event.data);
+        if (event.data === "[system] processing") {
+            document.getElementById("queueState").textContent = "PROCESSING";
+            return;
+        }
+
         document.getElementById("queueState").textContent = "RESPONSE RECEIVED";
-        log("ai", event.data);
+        log("ai", event.data || "[empty response]");
         setTimeout(() => {
             if (ws && ws.readyState === WebSocket.OPEN) {
                 document.getElementById("queueState").textContent = "READY";
@@ -497,13 +558,15 @@ function connect() {
         }, 900);
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
+        setDebug("socket_close", `code=${event.code} reason=${event.reason || "none"}`);
         updateStatus(false);
-        log("error", "Uplink closed. Reconnect in 3 seconds.");
-        setTimeout(connect, 3000);
+        log("error", `Uplink closed (code ${event.code}). Reconnect in 3 seconds.`);
+        reconnectTimer = setTimeout(connect, 3000);
     };
 
     ws.onerror = (event) => {
+        setDebug("socket_error", "browser websocket error");
         log("error", "Websocket fault detected.");
         console.error(event);
     };
@@ -518,12 +581,14 @@ function send() {
     log("user", text);
 
     if (!ws || ws.readyState !== WebSocket.OPEN) {
+        setDebug("send_blocked", "socket not open");
         log("error", "No live link. Attempting reconnect.");
         connect();
         return;
     }
 
     document.getElementById("queueState").textContent = "TRANSMITTING";
+    setDebug("send", text);
     ws.send(text);
     input.value = "";
 }
@@ -537,6 +602,8 @@ document.getElementById("msg").addEventListener("keydown", (event) => {
 
 updateStatus(false);
 updateCount();
+setDebug("boot");
+document.getElementById("sendButton").disabled = false;
 connect();
 </script>
 </body>

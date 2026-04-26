@@ -1,6 +1,6 @@
 # ai-autonomous
 
-Eine Docker-basierte Anwendung mit autonomem AI-Agent fuer Netzwerk-Operationen.
+Eine Docker-basierte Anwendung mit autonomem AI-Agent fuer Netzwerk-Operationen und einem integrierten medizinischen Beratungsmodus.
 
 ## Projektuebersicht
 
@@ -10,6 +10,7 @@ Dieses Repository enthaelt folgende Komponenten:
 
 * **Ollama** - Lokales LLM-Runtime-System
 * **Llama3 8B** - Open-Source Sprachmodell lokal gehostet
+* **MedGemma 4B** - Zusaetzliches medizinisches Inference-Modell fuer Gesundheitsfragen
 * Keine Cloud-Abhaengigkeiten - vollstaendig auf lokaler Hardware
 * Inference laeuft containerisiert in Docker
 * CPU-optimiert fuer lokale Ausfuehrung
@@ -17,9 +18,10 @@ Dieses Repository enthaelt folgende Komponenten:
 ### Backend
 
 * Python-Backend auf Basis von FastAPI
-* Integrierter autonomer Agent mit Ollama / Llama3
+* Integrierter autonomer Agent mit automatischer Modellwahl zwischen `llama3` und `medgemma:4b`
 * WebSocket-basierte Kommunikation
 * Tool-Registry fuer spezialisierte Netzwerkfunktionen
+* Medizinischer Beratungsmodus fuer gesundheitsbezogene Anfragen
 
 ### Frontend
 
@@ -32,7 +34,7 @@ Dieses Repository enthaelt folgende Komponenten:
 ### Infrastruktur
 
 * Docker-Compose-Setup mit folgenden Diensten:
-* **Ollama** - LLM-Runtime mit Llama3 Modell
+* **Ollama** - LLM-Runtime mit `llama3` und `medgemma:4b`
 * **Backend** - FastAPI mit autonomem Agent
 * **Frontend** - Node.js UI Server
 * **Nginx** - Reverse Proxy und Auslieferung der Hauptoberflaeche
@@ -49,6 +51,15 @@ Der Agent hat Zugriff auf folgende spezialisierte Tools:
 * **Network Info** - Lokale Netzwerk-Konfiguration
 * **Scan Host** - Ports scannen
 
+### Medizinischer Berater
+
+Das System enthaelt zusaetzlich einen medizinischen Beratungsmodus:
+
+* Gesundheitsbezogene Fragen werden automatisch ueber `medgemma:4b` beantwortet
+* Allgemeine und technische Fragen verbleiben beim Standardmodell `llama3`
+* Medizinische Antworten werden ohne externe Cloud-API lokal in Ollama erzeugt
+* Der Beratungsmodus ersetzt keine aerztliche Diagnose oder Notfallversorgung
+
 ### Dokumentation
 
 Weitere Projekt-Dokumentation liegt unter `docs/`.
@@ -61,13 +72,16 @@ Dort befinden sich unter anderem Setup-, RAG- und Security-Dokumente.
 ### Voraussetzungen
 
 * Docker und Docker Compose installiert
-* Mindestens 8 GB RAM fuer das Llama3 Modell
+* Mindestens 8 GB RAM fuer `llama3`
+* Fuer parallele Nutzung von `llama3` und `medgemma:4b` wird mehr Arbeitsspeicher empfohlen
 
 ### Starten der Anwendung
 
 ```bash
 docker-compose up -d
 ```
+
+Beim ersten Start werden sowohl `llama3` als auch `medgemma:4b` in den Ollama-Container geladen.
 
 Die Anwendung ist dann verfuegbar unter:
 
@@ -112,14 +126,23 @@ docker-compose down
 * **Speicher:** ca. 16 GB RAM/VRAM empfohlen
 * **Inferenz-Latenz:** ca. 2 bis 5 Sekunden pro Anfrage auf CPU
 
+### MedGemma 4B Modell
+
+* **Zweck:** Gesundheits- und medizinische Textanfragen
+* **Modellfamilie:** Google MedGemma
+* **Integration:** Lokal ueber Ollama als `medgemma:4b`
+* **Routing:** Wird automatisch bei medizinischen Schluesselbegriffen ausgewaehlt
+
 ### Integration im Agent
 
-Der autonome Agent nutzt Llama3 fuer:
+Der autonome Agent nutzt `llama3` fuer:
 
 1. Prompt-Parsing
 2. Tool-Selection
 3. Response-Generation
 4. JSON-Output
+
+Medizinische Anfragen werden dagegen ueber `medgemma:4b` beantwortet. Die Modellauswahl erfolgt im Backend automatisch anhand des Anfrageinhalts.
 
 Alle Verarbeitung erfolgt lokal ohne externe API-Calls.
 
@@ -137,7 +160,7 @@ Alle Verarbeitung erfolgt lokal ohne externe API-Calls.
       index.html                  |
                                   |
                             Ollama (11434)
-                              Llama3 lokal
+                   Llama3 lokal + MedGemma lokal
 ```
 
 Die React-Oberflaeche im Ordner `frontend/` bleibt weiterhin Teil des Projekts, waehrend Nginx fuer `http://localhost` aktuell die neue statische Nostromo-Konsole ausliefert.
@@ -172,7 +195,7 @@ docker-compose up -d --build backend
 
 ### Volumes
 
-* `ai-autonomus_ollama` - Persistente Speicherung des Llama3 Modells
+* `ai-autonomus_ollama` - Persistente Speicherung der lokalen Ollama-Modelle wie `llama3` und `medgemma:4b`
 
 ---
 
@@ -216,7 +239,7 @@ Frueherer Altbestand wurde nach `backend/legacy/` verschoben und ist derzeit nic
 
 ### Modell laedt zu lange
 
-Das Llama3-8B-Modell benoetigt beim ersten Start einige Sekunden zum Laden. Das ist normal.
+Die Modelle `llama3` und `medgemma:4b` benoetigen beim ersten Start einige Sekunden bis Minuten zum Laden oder Download. Das ist normal.
 
 ### Port-Konflikte
 
